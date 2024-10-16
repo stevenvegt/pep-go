@@ -29,7 +29,7 @@ $ go run .
 ## What is supported?
 - [x] Creating PIs for specific APs
 - [x] Transforming PIs to EIs for specific SPs
-- [ ] Decrypting EIs by specific SP
+- [x] Decrypting EIs by specific SP
 - [ ] Creating PPs
 - [ ] Transforming PPs to EPs for specific SPs
 - [ ] Decrypting EPs by specific SP
