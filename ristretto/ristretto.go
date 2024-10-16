@@ -20,6 +20,32 @@ type Cryptogram struct {
 	A, B, C ristretto.Point
 }
 
+type Message = ristretto.Point
+
+type HMACKey [32]byte
+
+func (k *HMACKey) Rand() {
+	s := ristretto.Scalar{}
+	s.Rand()
+	b := s.Bytes()
+	k.SetBytes(b[:])
+}
+
+func (k *HMACKey) Bytes() []byte {
+	return k[:]
+}
+
+func (k *HMACKey) SetBytes(b []byte) {
+	copy(k[:], b[:])
+}
+
+func (k HMACKey) Scalar() ristretto.Scalar {
+	s := ristretto.Scalar{}
+	b := [32]byte(k)
+	s.SetBytes(&b)
+	return s
+}
+
 func KeyGen() KeyPair {
 	var secretKey PrivateKey
 	var publicKey PublicKey
@@ -35,9 +61,17 @@ func MultiplyKey(priv PrivateKey, k Rekey) PrivateKey {
 	return key
 }
 
-func Reshuffle(c Cryptogram) Cryptogram {
-	s := ristretto.Scalar{}
-	s.Rand()
+func Embed(msg []byte) ristretto.Point {
+	em := [16]byte{}
+	copy(em[:], msg)
+
+	m := ristretto.Point{}
+	m.SetLizard(&em)
+	return m
+}
+
+func Reshuffle(c Cryptogram, k HMACKey) Cryptogram {
+	s := k.Scalar()
 
 	var c1 ristretto.Point
 	var c2 ristretto.Point
@@ -71,7 +105,13 @@ func Rerandomize(c Cryptogram, pub PublicKey) Cryptogram {
 	return Cryptogram{A: c1, B: c2, C: c3}
 }
 
-func Encrypt(pub PublicKey, msg []byte) (Cryptogram, error) {
+func Unshuffle(p Message, y HMACKey) Message {
+	k := y.Scalar()
+	k.Inverse(&k)
+	return *p.ScalarMult(&p, &k)
+}
+
+func Encrypt(pub PublicKey, m Message) (Cryptogram, error) {
 	// c1 = t
 	// s = pub * t
 	// c2 = msg + s
@@ -79,12 +119,6 @@ func Encrypt(pub PublicKey, msg []byte) (Cryptogram, error) {
 
 	var t ristretto.Scalar
 	t.Rand()
-
-	em := [16]byte{}
-	copy(em[:], msg)
-
-	m := ristretto.Point{}
-	m.SetLizard(&em)
 
 	var c1 ristretto.Point
 	var c2 ristretto.Point

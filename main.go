@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"log"
 
 	"github.com/stevenvegt/pep-go/ristretto"
@@ -17,7 +19,8 @@ type DecryptRequest struct {
 }
 
 type ActivationRequest struct {
-	Identifier string
+	Identifier   string
+	ASIdentifier string
 }
 
 type ActivationResponse struct {
@@ -39,8 +42,25 @@ func NewActivationService() IActivationService {
 	return &ActivationService{}
 }
 
+func calcDerivedKey(key ristretto.HMACKey, identifier string) ristretto.HMACKey {
+	log.Printf("calclDerivedKey, id: %s, key: %x\n", identifier, key)
+	mac := hmac.New(sha256.New, key.Bytes())
+	mac.Write([]byte(identifier))
+	sum := mac.Sum(nil)
+	dk := ristretto.HMACKey{}
+	dk.SetBytes(sum)
+	return dk
+}
+
 func (as ActivationService) Activate(req ActivationRequest) (ActivationResponse, error) {
-	c, err := ristretto.Encrypt(as.Keys.Y, []byte(req.Identifier))
+	p := ristretto.Embed([]byte(req.Identifier))
+
+	aaid := calcDerivedKey(as.Keys.AAm, req.ASIdentifier)
+	log.Println("aaid: ", aaid)
+
+	p = ristretto.Unshuffle(p, aaid)
+
+	c, err := ristretto.Encrypt(as.Keys.Y, p)
 	if err != nil {
 		return ActivationResponse{}, err
 	}
@@ -89,8 +109,12 @@ func NewAuthProvider(id string) IAuthProvider {
 }
 
 func (ap AuthProvider) Transform(req TransformRequest) (TransformResponse, error) {
-	// res := ristretto.Reshuffle(req.PP.Cryptogram)
+
 	res := ristretto.Rerandomize(req.PI.Cryptogram, ap.Keys.Y)
+
+	// "decrypt" the polymorphic Identifier for this ServiceProvider
+	res = ristretto.Reshuffle(res, ap.Keys.AAdi)
+	log.Println("aaid: ", ap.Keys.AAdi)
 
 	res = ristretto.ReKey(res, req.ServiceProvider.GetRekey())
 	return TransformResponse{
@@ -131,10 +155,17 @@ type Keys struct {
 	Rekey ristretto.Rekey
 	// PrivateKey is the private key for a ServiceProvider
 	PrivateKey ristretto.PrivateKey
+	// Authentication provider Adherence Master key, meant for the Activation Service
+	AAm ristretto.HMACKey
+	// Authentication provider Adherence Derived key, meant for AuthProviders
+	AAdi ristretto.HMACKey
 }
 
 func NewKeyManagementAuthority() IKeyManagementAuthority {
+	aam := ristretto.HMACKey{}
+	aam.Rand()
 	return KeyManagementAuthority{
+		keys:             Keys{AAm: aam},
 		AuthProviders:    make(map[string]IKMARegisterable),
 		ServiceProviders: make(map[string]IKMARegisterable),
 		YPair:            ristretto.KeyGen(),
@@ -143,13 +174,14 @@ func NewKeyManagementAuthority() IKeyManagementAuthority {
 }
 
 func (kma KeyManagementAuthority) RegisterActivationService(as IKMARegisterable) {
-	keys := Keys{Y: kma.YPair.PublicKey, Z: kma.ZPair.PublicKey}
+	keys := Keys{Y: kma.YPair.PublicKey, Z: kma.ZPair.PublicKey, AAm: kma.keys.AAm}
 	as.SetKeys(keys)
 }
 
 func (kma KeyManagementAuthority) RegisterAuthProvider(ap IKMARegisterable) {
 	kma.AuthProviders[ap.GetIdentifier()] = ap
-	keys := Keys{Y: kma.YPair.PublicKey, Z: kma.ZPair.PublicKey}
+	aadi := calcDerivedKey(kma.keys.AAm, ap.GetIdentifier())
+	keys := Keys{Y: kma.YPair.PublicKey, Z: kma.ZPair.PublicKey, AAdi: aadi}
 	ap.SetKeys(keys)
 }
 
@@ -220,7 +252,8 @@ func main() {
 
 	// Activate BSN
 	activationResp, err := as.Activate(ActivationRequest{
-		Identifier: identifier,
+		Identifier:   identifier,
+		ASIdentifier: ap.GetIdentifier(),
 	})
 	if err != nil {
 		log.Fatal("could not activate:", err)
