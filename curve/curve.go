@@ -1,4 +1,4 @@
-package ristretto
+package curve
 
 import (
 	"errors"
@@ -46,6 +46,9 @@ func (k HMACKey) Scalar() ristretto.Scalar {
 	return s
 }
 
+// KeyGen generates a new key pair by picking a random scalar as the
+// private key and generating the corresponding public key by multiplying
+// the base point by the private key.
 func KeyGen() KeyPair {
 	var secretKey PrivateKey
 	var publicKey PublicKey

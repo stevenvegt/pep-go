@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"log"
 
-	"github.com/stevenvegt/pep-go/ristretto"
+	"github.com/stevenvegt/pep-go/curve"
 )
 
 type Pseudonym struct {
@@ -24,7 +24,7 @@ type ActivationRequest struct {
 }
 
 type ActivationResponse struct {
-	PP ristretto.Cryptogram
+	PP curve.Cryptogram
 }
 
 // IActivationService is an interface for the activation service
@@ -42,25 +42,25 @@ func NewActivationService() IActivationService {
 	return &ActivationService{}
 }
 
-func calcDerivedKey(key ristretto.HMACKey, identifier string) ristretto.HMACKey {
+func calcDerivedKey(key curve.HMACKey, identifier string) curve.HMACKey {
 	log.Printf("calclDerivedKey, id: %s, key: %x\n", identifier, key)
 	mac := hmac.New(sha256.New, key.Bytes())
 	mac.Write([]byte(identifier))
 	sum := mac.Sum(nil)
-	dk := ristretto.HMACKey{}
+	dk := curve.HMACKey{}
 	dk.SetBytes(sum)
 	return dk
 }
 
 func (as ActivationService) Activate(req ActivationRequest) (ActivationResponse, error) {
-	p := ristretto.Embed([]byte(req.Identifier))
+	p := curve.Embed([]byte(req.Identifier))
 
 	aaid := calcDerivedKey(as.Keys.AAm, req.ASIdentifier)
 	log.Println("aaid: ", aaid)
 
-	p = ristretto.Unshuffle(p, aaid)
+	p = curve.Unshuffle(p, aaid)
 
-	c, err := ristretto.Encrypt(as.Keys.Y, p)
+	c, err := curve.Encrypt(as.Keys.Y, p)
 	if err != nil {
 		return ActivationResponse{}, err
 	}
@@ -96,7 +96,7 @@ type TransformResponse struct {
 }
 
 type EncryptedIdentity struct {
-	ristretto.Cryptogram
+	curve.Cryptogram
 }
 
 type AuthProvider struct {
@@ -110,13 +110,13 @@ func NewAuthProvider(id string) IAuthProvider {
 
 func (ap AuthProvider) Transform(req TransformRequest) (TransformResponse, error) {
 
-	res := ristretto.Rerandomize(req.PI.Cryptogram, ap.Keys.Y)
+	res := curve.Rerandomize(req.PI.Cryptogram, ap.Keys.Y)
 
 	// "decrypt" the polymorphic Identifier for this ServiceProvider
-	res = ristretto.Reshuffle(res, ap.Keys.AAdi)
+	res = curve.Reshuffle(res, ap.Keys.AAdi)
 	log.Println("aaid: ", ap.Keys.AAdi)
 
-	res = ristretto.ReKey(res, req.ServiceProvider.GetRekey())
+	res = curve.ReKey(res, req.ServiceProvider.GetRekey())
 	return TransformResponse{
 		EP: EncryptedIdentity{res},
 	}, nil
@@ -141,35 +141,35 @@ type KeyManagementAuthority struct {
 	ServiceProviders map[string]IKMARegisterable
 	keys             Keys
 	// YPair is the global Identity key pair
-	YPair ristretto.KeyPair
+	YPair curve.KeyPair
 	// ZPair is the global Pseudonym key pair
-	ZPair ristretto.KeyPair
+	ZPair curve.KeyPair
 }
 
 type Keys struct {
 	// Y is the global Identity public key
-	Y ristretto.PublicKey
+	Y curve.PublicKey
 	// Z is the global Pseudonym public key
-	Z ristretto.PublicKey
+	Z curve.PublicKey
 	// Rekey is the re-encryption key specific to a ServiceProvider
-	Rekey ristretto.Rekey
+	Rekey curve.Rekey
 	// PrivateKey is the private key for a ServiceProvider
-	PrivateKey ristretto.PrivateKey
+	PrivateKey curve.PrivateKey
 	// Authentication provider Adherence Master key, meant for the Activation Service
-	AAm ristretto.HMACKey
+	AAm curve.HMACKey
 	// Authentication provider Adherence Derived key, meant for AuthProviders
-	AAdi ristretto.HMACKey
+	AAdi curve.HMACKey
 }
 
 func NewKeyManagementAuthority() IKeyManagementAuthority {
-	aam := ristretto.HMACKey{}
+	aam := curve.HMACKey{}
 	aam.Rand()
 	return KeyManagementAuthority{
 		keys:             Keys{AAm: aam},
 		AuthProviders:    make(map[string]IKMARegisterable),
 		ServiceProviders: make(map[string]IKMARegisterable),
-		YPair:            ristretto.KeyGen(),
-		ZPair:            ristretto.KeyGen(),
+		YPair:            curve.KeyGen(),
+		ZPair:            curve.KeyGen(),
 	}
 }
 
@@ -187,9 +187,9 @@ func (kma KeyManagementAuthority) RegisterAuthProvider(ap IKMARegisterable) {
 
 func (kma KeyManagementAuthority) RegisterServiceProvider(sp IKMARegisterable) {
 	kma.ServiceProviders[sp.GetIdentifier()] = sp
-	var rekey ristretto.Rekey
+	var rekey curve.Rekey
 	rekey.Rand()
-	privKey := ristretto.MultiplyKey(kma.YPair.PrivateKey, rekey)
+	privKey := curve.MultiplyKey(kma.YPair.PrivateKey, rekey)
 	keys := Keys{Y: kma.YPair.PublicKey, Z: kma.ZPair.PublicKey, Rekey: rekey, PrivateKey: privKey}
 	sp.SetKeys(keys)
 }
@@ -201,7 +201,7 @@ type IKMARegisterable interface {
 
 type IServiceProvider interface {
 	DecryptEI(DecryptRequest) (Identity, error)
-	GetRekey() ristretto.Rekey
+	GetRekey() curve.Rekey
 	IKMARegisterable
 }
 
@@ -215,7 +215,7 @@ func (sp ServiceProvider) GetIdentifier() string {
 }
 
 func (sp ServiceProvider) DecryptEI(req DecryptRequest) (Identity, error) {
-	m, err := ristretto.Decrypt(sp.Keys.PrivateKey, req.EI.Cryptogram)
+	m, err := curve.Decrypt(sp.Keys.PrivateKey, req.EI.Cryptogram)
 	if err != nil {
 		return "", err
 	}
@@ -226,7 +226,7 @@ func (sp *ServiceProvider) SetKeys(keys Keys) {
 	sp.Keys = keys
 }
 
-func (sp ServiceProvider) GetRekey() ristretto.Rekey {
+func (sp ServiceProvider) GetRekey() curve.Rekey {
 	return sp.Keys.Rekey
 }
 
