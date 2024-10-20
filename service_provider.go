@@ -9,16 +9,16 @@ type IServiceProvider interface {
 }
 
 type ServiceProvider struct {
-	Identifier string
-	Keys       Keys
+	identifier string
+	keys       Keys
 }
 
 func (sp ServiceProvider) GetIdentifier() string {
-	return sp.Identifier
+	return sp.identifier
 }
 
 func (sp ServiceProvider) DecryptEI(req DecryptRequest) (Identity, error) {
-	m, err := curve.Decrypt(sp.Keys.PrivateKey, req.EI)
+	m, err := curve.Decrypt(sp.keys.PrivateKey, req.EI)
 	if err != nil {
 		return "", err
 	}
@@ -26,13 +26,13 @@ func (sp ServiceProvider) DecryptEI(req DecryptRequest) (Identity, error) {
 }
 
 func (sp *ServiceProvider) SetKeys(keys Keys) {
-	sp.Keys = keys
+	sp.keys = keys
 }
 
 func (sp ServiceProvider) GetRekey() curve.Rekey {
-	return sp.Keys.Rekey
+	return sp.keys.Rekey
 }
 
 func NewServiceProvider(id string) IServiceProvider {
-	return &ServiceProvider{Identifier: id}
+	return &ServiceProvider{identifier: id}
 }

@@ -7,31 +7,31 @@ func NewKeyManagementAuthority() IKeyManagementAuthority {
 	aam.Rand()
 	return KeyManagementAuthority{
 		keys:             Keys{AAm: aam},
-		AuthProviders:    make(map[string]IKMARegisterable),
-		ServiceProviders: make(map[string]IKMARegisterable),
-		YPair:            curve.KeyGen(),
-		ZPair:            curve.KeyGen(),
+		authProviders:    make(map[string]IKMARegisterable),
+		serviceProviders: make(map[string]IKMARegisterable),
+		yPair:            curve.KeyGen(),
+		zPair:            curve.KeyGen(),
 	}
 }
 
 func (kma KeyManagementAuthority) RegisterActivationService(as IKMARegisterable) {
-	keys := Keys{Y: kma.YPair.PublicKey, Z: kma.ZPair.PublicKey, AAm: kma.keys.AAm}
+	keys := Keys{Y: kma.yPair.PublicKey, Z: kma.zPair.PublicKey, AAm: kma.keys.AAm}
 	as.SetKeys(keys)
 }
 
 func (kma KeyManagementAuthority) RegisterAuthProvider(ap IKMARegisterable) {
-	kma.AuthProviders[ap.GetIdentifier()] = ap
+	kma.authProviders[ap.GetIdentifier()] = ap
 	aadi := calcDerivedKey(kma.keys.AAm, ap.GetIdentifier())
-	keys := Keys{Y: kma.YPair.PublicKey, Z: kma.ZPair.PublicKey, AAdi: aadi}
+	keys := Keys{Y: kma.yPair.PublicKey, Z: kma.zPair.PublicKey, AAdi: aadi}
 	ap.SetKeys(keys)
 }
 
 func (kma KeyManagementAuthority) RegisterServiceProvider(sp IKMARegisterable) {
-	kma.ServiceProviders[sp.GetIdentifier()] = sp
+	kma.serviceProviders[sp.GetIdentifier()] = sp
 	var rekey curve.Rekey
 	rekey.Rand()
-	privKey := curve.MultiplyKey(kma.YPair.PrivateKey, rekey)
-	keys := Keys{Y: kma.YPair.PublicKey, Z: kma.ZPair.PublicKey, Rekey: rekey, PrivateKey: privKey}
+	privKey := curve.MultiplyKey(kma.yPair.PrivateKey, rekey)
+	keys := Keys{Y: kma.yPair.PublicKey, Z: kma.zPair.PublicKey, Rekey: rekey, PrivateKey: privKey}
 	sp.SetKeys(keys)
 }
 
@@ -47,11 +47,11 @@ type IKeyManagementAuthority interface {
 }
 
 type KeyManagementAuthority struct {
-	AuthProviders    map[string]IKMARegisterable
-	ServiceProviders map[string]IKMARegisterable
+	authProviders    map[string]IKMARegisterable
+	serviceProviders map[string]IKMARegisterable
 	keys             Keys
-	// YPair is the global Identity key pair
-	YPair curve.KeyPair
-	// ZPair is the global Pseudonym key pair
-	ZPair curve.KeyPair
+	// yPair is the global Identity key pair
+	yPair curve.KeyPair
+	// zPair is the global Pseudonym key pair
+	zPair curve.KeyPair
 }

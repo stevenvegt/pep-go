@@ -16,7 +16,7 @@ type IActivationService interface {
 }
 
 type ActivationService struct {
-	Keys Keys
+	keys Keys
 }
 
 func NewActivationService() IActivationService {
@@ -36,12 +36,12 @@ func calcDerivedKey(key curve.HMACKey, identifier string) curve.HMACKey {
 func (as ActivationService) Activate(req ActivationRequest) (ActivationResponse, error) {
 	p := curve.Embed([]byte(req.Identifier))
 
-	aaid := calcDerivedKey(as.Keys.AAm, req.AsIdentifier)
+	aaid := calcDerivedKey(as.keys.AAm, req.AsIdentifier)
 	log.Println("aaid: ", aaid)
 
 	p = curve.Unshuffle(p, aaid)
 
-	c, err := curve.Encrypt(as.Keys.Y, p)
+	c, err := curve.Encrypt(as.keys.Y, p)
 	if err != nil {
 		return ActivationResponse{}, err
 	}
@@ -56,5 +56,5 @@ func (as ActivationService) GetIdentifier() string {
 }
 
 func (as *ActivationService) SetKeys(keys Keys) {
-	as.Keys = keys
+	as.keys = keys
 }

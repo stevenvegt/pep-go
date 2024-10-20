@@ -15,21 +15,21 @@ type IAuthProvider interface {
 }
 
 type AuthProvider struct {
-	Identifier string
-	Keys       Keys
+	identifier string
+	keys       Keys
 }
 
 func NewAuthProvider(id string) IAuthProvider {
-	return &AuthProvider{Identifier: id}
+	return &AuthProvider{identifier: id}
 }
 
 func (ap AuthProvider) Transform(req TransformRequest) (TransformResponse, error) {
 
-	res := curve.Rerandomize(req.PI, ap.Keys.Y)
+	res := curve.Rerandomize(req.PI, ap.keys.Y)
 
 	// "decrypt" the polymorphic Identity for this ServiceProvider
-	res = curve.Reshuffle(res, ap.Keys.AAdi)
-	log.Println("aaid: ", ap.Keys.AAdi)
+	res = curve.Reshuffle(res, ap.keys.AAdi)
+	log.Println("aaid: ", ap.keys.AAdi)
 
 	// IEdi := calcDerivedKey(key curve.HMACKey, identifier string)
 
@@ -41,9 +41,9 @@ func (ap AuthProvider) Transform(req TransformRequest) (TransformResponse, error
 }
 
 func (ap AuthProvider) GetIdentifier() string {
-	return ap.Identifier
+	return ap.identifier
 }
 
 func (ap *AuthProvider) SetKeys(keys Keys) {
-	ap.Keys = keys
+	ap.keys = keys
 }
