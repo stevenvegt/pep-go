@@ -23,10 +23,11 @@ sequenceDiagram
 
 
 
-	PGO1 ->> VAD: Geef pseudoniem voor Huisarts<br> [HA, Sessie]
-	note over VAD: Maak Encrypted Pseudoniem voor HA
-	VAD ->> PGO1: EP@HA
+	PGO1 ->> VAD: Geef pseudoniem voor PGO1<br> [PGO1, Sessie, PGO1 public key]
+	note over VAD: Maak Encrypted Pseudoniem voor PGO1
+	VAD ->> PGO1: EP@PGO1
 
+	note over PGO1: pseudoniem ontsleutelen [EP@HA]
 ```
 
 ## PGO vraagt op bij Zorgaanbieder
@@ -34,7 +35,6 @@ sequenceDiagram
 ```mermaid
 
 sequenceDiagram
-    actor burger as Karel<br>(PGO gerbuiker)
     participant PGO1
     participant PRS
     participant HA as Huisarts
@@ -42,12 +42,17 @@ sequenceDiagram
 
     autonumber
 
-    PGO1 ->> VAD: Geef pseudoniem voor Huisarts<br> [HA, Sessie]
+    PGO1 ->> VAD: Geef pseudoniem voor Huisarts<br> [HA-ID, Sessie]
+    VAD ->> Adressering: Haal huidige versie &<br> public key op voor HA<br>[HA-ID]
+    Adressering->>VAD: Public key HA
     note over VAD: Maak Encrypted Pseudoniem voor HA
     VAD ->> PGO1: EP@HA
 
     PGO1 ->> HA: Vraag Karel's medische gegevens<br> [EP@HA]
-    note over HA: Decrypt EP@HA -> pseudoniem<br> lookup naar polymorf pseudoniem<br> PP@HA -> EP@TSR
+    note over HA: Decrypt EP@HA -> pseudoniem
+    HA->>Adressering: Lookup public key [TSR-ID]
+    Adressering->>HA: Public key en versie
+    note over HA: Lookup naar polymorf pseudoniem<br>en maak PP@HA -> EP@TSR
     HA ->> TSR: Is er toestemming voor leveren<br> van gegevens aan PGO?<br> [EP@TSR, HA, PGO]
     note over TSR: Decrypt EP@TSR -> P@TSR, Zoek toestemming<br> [P@TSR, doel=PGO, bron=HA]
     TSR -->> HA: Ja
@@ -77,4 +82,85 @@ sequenceDiagram
     TSR -->> NVI: Toestemmingen
     note over NVI: Decrypt EP@NVI -> Ps@NVI<br> Zoek zorgaanbieders<br> [Ps@NVI, doel=HA]
     NVI -->> HA: [Apotheek1, Huisarts1, Ziekenhuis1]
+```
+
+
+
+
+### Migratie 
+
+
+
+Migratie van pseudoniemen van één partij
+
+```mermaid
+sequenceDiagram
+autonumber
+
+note over PGO1: Pas versie nummer aan en maak nieuwe keys
+
+loop Voor alle geregistreerde pseudoniemen
+PGO1 ->> vad: Vraag om pseudoniem [Sessie,nieuwe key]
+note over VAD: Maak Encrypted Pseudoniem voor PGO1
+VAD ->> PGO1: EP@PGO1
+
+note over PGO1: Registreer nieuwe pseudoniem
+end
+```
+
+Partij met PP
+
+```mermaid
+sequenceDiagram
+autonumber
+
+note over HA: Pas versie nummer aan en maak nieuwe keys
+HA->>Adressering: Registreer nieuwe versie en publieke sleutel
+
+loop Voor alle geregistreerde BSN
+note over HA: Maak Encrypted Pseudoniem voor HA
+note over HA: Decrypt Pseudoniem voor HA
+note over HA: Registreer nieuwe pseudoniem
+note over HA: Registreer relatie oude & nieuwe pseudoniem
+
+end
+
+oud->>HA: Vraag op via oud pseudoniem [Pv1]
+note over HA: Zie dat het een oude versie betreft, decrypt en zoek in koppeltabel
+
+```
+
+Migratie van alle pseudoniemen
+
+```mermaid
+sequenceDiagram
+autonumber
+
+note over PAS: Pas activatie versie & sleutel aan
+
+HA->>PAS: Verifieer activatie versie
+PAS->>HA: Geef actuele versie [v2]
+note over HA: Zie dat versie anders is en start migratie
+
+nieuw->>HA: Vraag op basis van activatie V2
+alt Migratie al gedaan
+note over HA: Verwerk als normaal
+else Migratie nog niet gedaan
+HA->>nieuwe: Verzoek om oude versie te gebruiken
+nieuwe->>PAS: activeer met V1<br>(dit mag enkel tijdelijk)
+PAS->>nieuwe: oude activatie
+nieuwe->>HA: V1 versie
+end
+
+```
+
+Crypto rollover
+
+
+```mermaid
+sequenceDiagram
+autonumber
+
+note over PAS: Nieuwe versie algoritmes...
+
 ```
