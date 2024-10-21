@@ -15,8 +15,8 @@ type DecryptRequest struct {
 }
 
 type ActivationRequest struct {
-	Identifier   string
-	AsIdentifier string
+	Identifier string
+	APid       string
 }
 
 type ActivationResponse struct {
@@ -27,9 +27,9 @@ type ActivationResponse struct {
 // TransformRequest is the request object for the Transform operation from polymorphic identity/pseudonym to encrypted identity/pseudonym
 // It contains the polymorphic identity or pseudonym and the ServiceProvider for which the transformation is intended
 type TransformRequest struct {
-	PI              PolymorphicIdentity
-	PP              PolymorphicPseudonym
-	ServiceProvider IServiceProvider
+	PI         PolymorphicIdentity
+	PP         PolymorphicPseudonym
+	SPIdentity string
 }
 
 // TransformResponse is the response object for the Transform operation
@@ -44,18 +44,3 @@ type EncryptedPseudonym = curve.Cryptogram
 
 type PolymorphicIdentity = curve.Cryptogram
 type PolymorphicPseudonym = curve.Cryptogram
-
-type Keys struct {
-	// Y is the global Identity public key
-	Y curve.PublicKey
-	// Z is the global Pseudonym public key
-	Z curve.PublicKey
-	// Rekey is the re-encryption key specific to a ServiceProvider
-	Rekey curve.Rekey
-	// PrivateKey is the private key for a ServiceProvider
-	PrivateKey curve.PrivateKey
-	// Authentication provider Adherence Master key, meant for the Activation Service
-	AAm curve.HMACKey
-	// Authentication provider Adherence Derived key, meant for AuthProviders
-	AAdi curve.HMACKey
-}

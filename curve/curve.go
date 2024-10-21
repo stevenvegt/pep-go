@@ -51,11 +51,15 @@ func (k HMACKey) Scalar() ristretto.Scalar {
 // the base point by the private key.
 func KeyGen() KeyPair {
 	var secretKey PrivateKey
-	var publicKey PublicKey
 
-	secretKey.Rand()                     // generate a new secret key
-	publicKey.ScalarMultBase(&secretKey) // compute public key
-	return KeyPair{PrivateKey: secretKey, PublicKey: publicKey}
+	secretKey.Rand() // generate a new secret key
+	pubKey := DerivePubKey(secretKey)
+	return KeyPair{PrivateKey: secretKey, PublicKey: pubKey}
+}
+
+func DerivePubKey(priv PrivateKey) PublicKey {
+	p := PublicKey{}
+	return *p.ScalarMultBase(&priv)
 }
 
 func MultiplyKey(priv PrivateKey, k Rekey) PrivateKey {

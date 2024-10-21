@@ -27,8 +27,8 @@ func main() {
 
 	// Activate BSN to a polymorphic identity
 	activationResp, err := as.Activate(pepgo.ActivationRequest{
-		Identifier:   identifier,
-		AsIdentifier: ap.GetIdentifier(),
+		Identifier: identifier,
+		APid:       ap.GetIdentifier(),
 	})
 	if err != nil {
 		log.Fatal("could not activate:", err)
@@ -36,7 +36,10 @@ func main() {
 
 	log.Println("cryptogram after activation: ", activationResp.PI)
 	// Transform the polymorphic identity to an encrypted identity for the ServiceProvider
-	transformResp, err := ap.Transform(pepgo.TransformRequest{PI: activationResp.PI, ServiceProvider: sp})
+	transformResp, err := ap.Transform(pepgo.TransformRequest{
+		PI:         activationResp.PI,
+		SPIdentity: sp.GetIdentifier(),
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,6 +50,5 @@ func main() {
 	if err != nil {
 		log.Fatal("could not decrypt:", err)
 	}
-	//
 	log.Println("decrypted msg: ", decryptedIdentity)
 }
